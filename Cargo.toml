@@ -4,7 +4,7 @@ members = ["buildpacks/ruby", "commons"]
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.82"
 
 [workspace.lints.rust]
 unreachable_pub = "warn"

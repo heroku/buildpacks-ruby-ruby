@@ -118,7 +118,7 @@ pub(crate) fn handle(
 
 pub(crate) type Metadata = MetadataV2;
 try_migrate_deserializer_chain!(
-    chain: [MetadataV1, MetadataV2],
+    chain: [MetadataV1, MetadataV2, MetadataV3],
     error: MetadataMigrateError,
     deserializer: toml::Deserializer::new,
 );
@@ -176,6 +176,15 @@ pub(crate) struct MetadataV2 {
     pub(crate) cpu_architecture: String,
     pub(crate) ruby_version: ResolvedRubyVersion,
     pub(crate) force_bundle_install_key: String,
+    pub(crate) digest: MetadataDigest, // Must be last for serde to be happy https://github.com/toml-rs/toml-rs/issues/142
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+pub(crate) struct MetadataV3 {
+    pub(crate) os_distribution: String,
+    pub(crate) cpu_architecture: String,
+    pub(crate) ruby_version: ResolvedRubyVersion,
+    pub(crate) force_bundle_install_key: String,
 
     /// A struct that holds the cryptographic hash of components that can
     /// affect the result of `bundle install`. When these values do not
@@ -213,6 +222,20 @@ impl TryFrom<MetadataV1> for MetadataV2 {
             ruby_version: v1.ruby_version,
             force_bundle_install_key: v1.force_bundle_install_key,
             digest: v1.digest,
+        })
+    }
+}
+
+impl TryFrom<MetadataV2> for MetadataV3 {
+    type Error = Infallible;
+
+    fn try_from(v2: MetadataV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            os_distribution: format!("{} {}", v2.distro_name, v2.distro_version),
+            cpu_architecture: v2.cpu_architecture,
+            ruby_version: v2.ruby_version,
+            force_bundle_install_key: v2.force_bundle_install_key,
+            digest: v2.digest,
         })
     }
 }

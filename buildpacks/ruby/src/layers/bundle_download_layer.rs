@@ -9,6 +9,7 @@ use crate::RubyBuildpack;
 use crate::RubyBuildpackError;
 use bullet_stream::state::SubBullet;
 use bullet_stream::{style, Print};
+use cache_diff::CacheDiff;
 use commons::gemfile_lock::ResolvedBundlerVersion;
 use fun_run::{self, CommandWithName};
 use libcnb::data::layer_name;
@@ -59,20 +60,13 @@ try_migrate_deserializer_chain!(
 
 impl MetadataDiff for Metadata {
     fn diff(&self, other: &Self) -> Vec<String> {
-        let mut differences = Vec::new();
-        if self.version != other.version {
-            differences.push(format!(
-                "Bundler version ({old} to {now})",
-                old = style::value(other.version.to_string()),
-                now = style::value(self.version.to_string())
-            ));
-        }
-        differences
+        <Self as CacheDiff>::diff(self, other)
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, CacheDiff)]
 pub(crate) struct MetadataV1 {
+    #[cache_diff(rename = "Bundler version")]
     pub(crate) version: ResolvedBundlerVersion,
 }
 
@@ -141,12 +135,14 @@ mod test {
         let old = Metadata {
             version: ResolvedBundlerVersion("2.3.5".to_string()),
         };
-        assert!(old.diff(&old).is_empty());
+        assert!(CacheDiff::diff(&old, &old).is_empty());
 
-        let diff = Metadata {
-            version: ResolvedBundlerVersion("2.3.6".to_string()),
-        }
-        .diff(&old);
+        let diff = CacheDiff::diff(
+            &Metadata {
+                version: ResolvedBundlerVersion("2.3.6".to_string()),
+            },
+            &old,
+        );
         assert_eq!(
             diff.iter().map(strip_ansi).collect::<Vec<String>>(),
             vec!["Bundler version (`2.3.5` to `2.3.6`)"]
